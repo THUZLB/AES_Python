@@ -64,36 +64,37 @@ class AesSubFunction:
 
     @staticmethod
     def shiftrows(data):
-        return data[AesConstant.ShiftRow]
+        return data[:, AesConstant.ShiftRow]
 
     @staticmethod
     def modgf(data):
-        return (((data << 1) ^ 0x1B) & 0xFF) if (data & 0x80) else (data << 1)
+        return np.asarray([(((data_tmp << 1) ^ 0x1B) & 0xFF) if (data_tmp & 0x80) else (data_tmp << 1)
+                           for data_tmp in data], dtype=np.uint8)
 
     @staticmethod
     def mixcolumn_0(data):  # 2, 3, 1, 1
-        return AesSubFunction.modgf(data[0] ^ data[1]) ^ data[1] ^ data[2] ^ data[3]
+        return AesSubFunction.modgf(data[:, 0] ^ data[:, 1]) ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]
 
     @staticmethod
     def mixcolumn_1(data):  # 1, 2, 3, 1
-        return AesSubFunction.modgf(data[1] ^ data[2]) ^ data[0] ^ data[2] ^ data[3]
+        return AesSubFunction.modgf(data[:, 1] ^ data[:, 2]) ^ data[:, 0] ^ data[:, 2] ^ data[:, 3]
 
     @staticmethod
     def mixcolumn_2(data):  # 1, 1, 2, 3
-        return AesSubFunction.modgf(data[2] ^ data[3]) ^ data[0] ^ data[1] ^ data[3]
+        return AesSubFunction.modgf(data[:, 2] ^ data[:, 3]) ^ data[:, 0] ^ data[:, 1] ^ data[:, 3]
 
     @staticmethod
     def mixcolumn_3(data):  # 3, 1, 1, 2
-        return AesSubFunction.modgf(data[3] ^ data[0]) ^ data[0] ^ data[1] ^ data[2]
+        return AesSubFunction.modgf(data[:, 3] ^ data[:, 0]) ^ data[:, 0] ^ data[:, 1] ^ data[:, 2]
 
     @staticmethod
     def mixcolumns(data):
         mixcolumns_data = np.zeros(data.shape, dtype=np.uint8)
         for i in range(4):
-            mixcolumns_data[4 * i + 0] = AesSubFunction.mixcolumn_0(data[4 * i: 4 * (i + 1)])
-            mixcolumns_data[4 * i + 1] = AesSubFunction.mixcolumn_1(data[4 * i: 4 * (i + 1)])
-            mixcolumns_data[4 * i + 2] = AesSubFunction.mixcolumn_2(data[4 * i: 4 * (i + 1)])
-            mixcolumns_data[4 * i + 3] = AesSubFunction.mixcolumn_3(data[4 * i: 4 * (i + 1)])
+            mixcolumns_data[:, 4 * i + 0] = AesSubFunction.mixcolumn_0(data[:, 4 * i: 4 * (i + 1)])
+            mixcolumns_data[:, 4 * i + 1] = AesSubFunction.mixcolumn_1(data[:, 4 * i: 4 * (i + 1)])
+            mixcolumns_data[:, 4 * i + 2] = AesSubFunction.mixcolumn_2(data[:, 4 * i: 4 * (i + 1)])
+            mixcolumns_data[:, 4 * i + 3] = AesSubFunction.mixcolumn_3(data[:, 4 * i: 4 * (i + 1)])
 
         return mixcolumns_data
 
@@ -174,10 +175,12 @@ class AesEncrypt:
         ciphertext = np.zeros(plaintext.shape, dtype=np.uint8)
 
         roundkeys = AesGenerate.generate_roundkeys128(key)
-        for i in range(len(plaintext)):
-            ciphertext[i] = AesSubFunction.addroundkey(plaintext[i], roundkeys[i, 0:16])
-            for j in range(10):
-                ciphertext[i] = AesSubFunction.round_encrypt(ciphertext[i], roundkeys[i, 16 * j:16 * (j + 1)])
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for j in range(1, 10):
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * j:16 * (j + 1)])
+        ciphertext = AesSubFunction.subbytes(ciphertext)
+        ciphertext = AesSubFunction.shiftrows(ciphertext)
+        ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 10:16 * 11])
 
         return ciphertext
 
@@ -195,8 +198,20 @@ class AesDecrypt:
 
 
 if __name__ == '__main__':
-    p = np.arange(16, dtype=np.uint8)
+    p = np.arange(16, dtype=np.uint8).reshape(-1, 16)
     k = np.arange(16, dtype=np.uint8)
     c = AesEncrypt.encrypt(p, k)
-    print(c)  # [[182 108  43 131 153 171 153 214 151 229 160 209 108  53  89 106]]
+    print(c)  # [[ 56 212 109 202  31 171   3  50 200  54  17 244 124 196  96  57]]
+    roundkeys = AesGenerate.generate_roundkeys128(k.reshape(1, 16))
+    print(roundkeys)
 
+    # [[  0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15 119 170
+    #   213 253 115 175 211 250 123 166 217 241 119 171 215 254 206 164 183   8
+    #   189  11 100 242 198 173 189   3 177   6 106 253 158 166 216 192  35 173
+    #   188  50 229   0   1  49  84   6 107 204 221 217 183 224 254 116  11 210
+    #    27 116  10 227  79 114  97  47 216  54 247 100  38  66 252 182  61  54
+    #   246  85 114  68 151 122  34 190 236  36   4 252  16 146  57 202 230 199
+    #    75 142 113 189  24  29 245 151  28 225 229   5  37  43   3 194 110 165
+    #   114 127  74  93 243   8  86 188  22  13 115 151  21 207  29  50 103 176
+    #   182 216 208 172 224 100 198 161 147 243 211 110 142 193 180 222 157  85
+    #   168 181 125  49 110  20 238 194 189 122  96   3   9 164]]
