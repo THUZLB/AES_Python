@@ -115,7 +115,7 @@ class AesSubFunction:
 class AesGenerate:
     @staticmethod
     def generate(key, rounds):
-        key = key[:, ::-1]
+        key = np.concatenate((key[:, 1:4], key[:, 0:1]), axis=1)
         key = AesSubFunction.subbytes(key)
         key[:, 0] ^= AesConstant.RC[rounds - 1]
 
@@ -201,17 +201,6 @@ if __name__ == '__main__':
     p = np.arange(16, dtype=np.uint8).reshape(-1, 16)
     k = np.arange(16, dtype=np.uint8)
     c = AesEncrypt.encrypt(p, k)
-    print(c)  # [[ 56 212 109 202  31 171   3  50 200  54  17 244 124 196  96  57]]
+    print(c)
     roundkeys = AesGenerate.generate_roundkeys128(k.reshape(1, 16))
     print(roundkeys)
-
-    # [[  0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15 119 170
-    #   213 253 115 175 211 250 123 166 217 241 119 171 215 254 206 164 183   8
-    #   189  11 100 242 198 173 189   3 177   6 106 253 158 166 216 192  35 173
-    #   188  50 229   0   1  49  84   6 107 204 221 217 183 224 254 116  11 210
-    #    27 116  10 227  79 114  97  47 216  54 247 100  38  66 252 182  61  54
-    #   246  85 114  68 151 122  34 190 236  36   4 252  16 146  57 202 230 199
-    #    75 142 113 189  24  29 245 151  28 225 229   5  37  43   3 194 110 165
-    #   114 127  74  93 243   8  86 188  22  13 115 151  21 207  29  50 103 176
-    #   182 216 208 172 224 100 198 161 147 243 211 110 142 193 180 222 157  85
-    #   168 181 125  49 110  20 238 194 189 122  96   3   9 164]]
