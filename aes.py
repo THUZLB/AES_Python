@@ -54,6 +54,13 @@ class AesConstant:
         12, 1, 6, 11
     ])
 
+    InvShiftRow = np.array([
+        0, 13, 10, 7,
+        4, 1, 14, 11,
+        8, 5, 2, 15,
+        12, 9, 6, 3
+    ])
+
     RC = np.array([0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36], dtype=np.uint8)
 
 
@@ -138,11 +145,33 @@ class AesGenerate:
 
     @staticmethod
     def generate_roundkeys192(key):
-        pass
+        roundkeys = np.zeros(shape=(len(key), 16 * 13), dtype=np.uint8)
+        roundkeys[:, 0:24] = key
+        for i in range(1, 9):
+            roundkeys[:, 24 * i: 24 * i + 4] = roundkeys[:, 24 * (i - 1):24 * (i - 1) + 4] ^ \
+                                               AesGenerate.generate(roundkeys[:, 24 * (i - 1) + 20:24 * i], rounds=i)
+            words = 4 if i == 8 else 6
+            for j in range(1, words):
+                roundkeys[:, 24 * i + 4 * j: 24 * i + 4 * (j + 1)] = \
+                    roundkeys[:, 24 * i + 4 * (j - 1): 24 * i + 4 * j] ^ \
+                    roundkeys[:, 24 * (i - 1) + 4 * j: 24 * (i - 1) + 4 * (j + 1)]
+
+        return roundkeys
 
     @staticmethod
     def generate_roundkeys256(key):
-        pass
+        roundkeys = np.zeros(shape=(len(key), 16 * 15), dtype=np.uint8)
+        roundkeys[:, 0:32] = key
+        for i in range(1, 8):
+            roundkeys[:, 32 * i: 32 * i + 4] = roundkeys[:, 32 * (i - 1):32 * (i - 1) + 4] ^ \
+                                               AesGenerate.generate(roundkeys[:, 32 * (i - 1) + 28:32 * i], rounds=i)
+            words = 4 if i == 7 else 8
+            for j in range(1, words):
+                roundkeys[:, 32 * i + 4 * j: 32 * i + 4 * (j + 1)] = \
+                    roundkeys[:, 32 * i + 4 * (j - 1): 32 * i + 4 * j] ^ \
+                    roundkeys[:, 32 * (i - 1) + 4 * j: 32 * (i - 1) + 4 * (j + 1)]
+
+        return roundkeys
 
 
 class AesEncrypt:
@@ -186,21 +215,41 @@ class AesEncrypt:
 
     @staticmethod
     def encrypt192(plaintext, key):
-        pass
+        ciphertext = np.zeros(plaintext.shape, dtype=np.uint8)
+
+        roundkeys = AesGenerate.generate_roundkeys192(key)
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for j in range(1, 12):
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * j:16 * (j + 1)])
+        ciphertext = AesSubFunction.subbytes(ciphertext)
+        ciphertext = AesSubFunction.shiftrows(ciphertext)
+        ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 12:16 * 13])
+
+        return ciphertext
 
     @staticmethod
     def encrypt256(plaintext, key):
-        pass
+        ciphertext = np.zeros(plaintext.shape, dtype=np.uint8)
 
+        roundkeys = AesGenerate.generate_roundkeys256(key)
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for j in range(1, 14):
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * j:16 * (j + 1)])
+        ciphertext = AesSubFunction.subbytes(ciphertext)
+        ciphertext = AesSubFunction.shiftrows(ciphertext)
+        ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 14:16 * 15])
 
+        return ciphertext
 class AesDecrypt:
     pass
 
 
 if __name__ == '__main__':
     p = np.arange(16, dtype=np.uint8).reshape(-1, 16)
-    k = np.arange(16, dtype=np.uint8)
+    k = np.arange(32, dtype=np.uint8)
     c = AesEncrypt.encrypt(p, k)
     print(c)
-    roundkeys = AesGenerate.generate_roundkeys128(k.reshape(1, 16))
+    # [[  0  96 191 254  70 131  75 184 218  92 249 166  31 242  32 174]]
+    # [[106 255 243 202 118  64 203 129 156 212  11  94 221  26 164 254]]
+    roundkeys = AesGenerate.generate_roundkeys256(k.reshape(1, 32))
     print(roundkeys)
