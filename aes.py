@@ -100,10 +100,10 @@ class AesSubFunction:
 
     @staticmethod
     def invmixcolumn_0(data):  # E, B, D, 9, [1110, 1011, 1101, 1001]
-        result = (AesSubFunction.modgf((data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]) << 2) ^
-                  AesSubFunction.modgf((data[:, 0] ^ data[:, 2]) << 1) ^
-                  AesSubFunction.modgf(data[:, 0] ^ data[:, 1]) ^
-                  (data[:, 1] ^ data[:, 2] ^ data[:, 3]))
+        result = (AesSubFunction.modgf(AesSubFunction.modgf(AesSubFunction.modgf(
+            data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]))) ^
+                  AesSubFunction.modgf(AesSubFunction.modgf(data[:, 0] ^ data[:, 2])) ^
+                  AesSubFunction.modgf(data[:, 0] ^ data[:, 1]) ^ (data[:, 1] ^ data[:, 2] ^ data[:, 3]))
 
         return result
 
@@ -113,10 +113,10 @@ class AesSubFunction:
 
     @staticmethod
     def invmixcolumn_1(data):  # 9, E, B, D, [1001, 1110, 1011, 1101]
-        result = (AesSubFunction.modgf((data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]) << 2) ^
-                  AesSubFunction.modgf((data[:, 1] ^ data[:, 3]) << 1) ^
-                  AesSubFunction.modgf(data[:, 1] ^ data[:, 2]) ^
-                  (data[:, 0] ^ data[:, 2] ^ data[:, 3]))
+        result = (AesSubFunction.modgf(AesSubFunction.modgf(AesSubFunction.modgf(
+            data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]))) ^
+                  AesSubFunction.modgf(AesSubFunction.modgf(data[:, 1] ^ data[:, 3])) ^
+                  AesSubFunction.modgf(data[:, 1] ^ data[:, 2]) ^ (data[:, 0] ^ data[:, 2] ^ data[:, 3]))
 
         return result
 
@@ -126,10 +126,10 @@ class AesSubFunction:
 
     @staticmethod
     def invmixcolumn_2(data):  # D, 9, E, B, [1101, 1001, 1110, 1011]
-        result = (AesSubFunction.modgf((data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]) << 2) ^
-                  AesSubFunction.modgf((data[:, 0] ^ data[:, 2]) << 1) ^
-                  AesSubFunction.modgf(data[:, 2] ^ data[:, 3]) ^
-                  (data[:, 0] ^ data[:, 1] ^ data[:, 3]))
+        result = (AesSubFunction.modgf(AesSubFunction.modgf(AesSubFunction.modgf(
+            data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]))) ^
+                  AesSubFunction.modgf(AesSubFunction.modgf(data[:, 0] ^ data[:, 2])) ^
+                  AesSubFunction.modgf(data[:, 2] ^ data[:, 3]) ^ (data[:, 0] ^ data[:, 1] ^ data[:, 3]))
 
         return result
 
@@ -139,10 +139,11 @@ class AesSubFunction:
 
     @staticmethod
     def invmixcolumn_3(data):  # B, D, 9, E, [1011, 1101, 1001, 1110]
-        result = (AesSubFunction.modgf((data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]) << 2) ^
-                  AesSubFunction.modgf((data[:, 1] ^ data[:, 3]) << 1) ^
-                  AesSubFunction.modgf(data[:, 0] ^ data[:, 3]) ^
-                  (data[:, 0] ^ data[:, 1] ^ data[:, 2]))
+        result = (AesSubFunction.modgf(AesSubFunction.modgf(AesSubFunction.modgf(
+            data[:, 0] ^ data[:, 1] ^ data[:, 2] ^ data[:, 3]))) ^
+                  AesSubFunction.modgf(AesSubFunction.modgf(data[:, 1] ^ data[:, 3])) ^
+                  AesSubFunction.modgf(data[:, 0] ^ data[:, 3]) ^ (data[:, 0] ^ data[:, 1] ^ data[:, 2]))
+
         return result
 
     @staticmethod
@@ -368,7 +369,7 @@ class AesDecrypt:
         print(9, plaintext)
         for i in range(9, 0, -1):
             plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
-            print(i-1, plaintext)
+            print(i - 1, plaintext)
         plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
         print(-1, plaintext)
 
@@ -418,7 +419,7 @@ if __name__ == '__main__':
     roundkeys = AesGenerate.generate_roundkeys128(k)
     # print(roundkeys.shape)
     print('inverse analysis-------------------------------------------')
-    c_9 = np.array([[142, 193, 102,  72,  26, 103, 122, 169, 106,  20, 255, 110, 206, 136, 192,  16]], dtype=np.uint8)
+    c_9 = np.array([[142, 193, 102, 72, 26, 103, 122, 169, 106, 20, 255, 110, 206, 136, 192, 16]], dtype=np.uint8)
     print(c_9)
     c_9_invadd = AesSubFunction.invaddroundkey(c_9, roundkeys[:, 16 * 9: 16 * 10])
     print(c_9_invadd)
@@ -440,9 +441,8 @@ if __name__ == '__main__':
 
     print(AesSubFunction.round_decrypt(c_9, roundkeys[:, 16 * 9: 16 * 10]))
 
-
     print('mixtest---------------------------------------------------------')
-    a = np.array([[202, 104, 218,  55,  34,  52,  54, 196, 213, 140, 135, 195, 106, 159, 236, 196]], dtype=np.uint8)
+    a = np.array([[202, 104, 218, 55, 34, 52, 54, 196, 213, 140, 135, 195, 106, 159, 236, 196]], dtype=np.uint8)
     print(a)
     a_m = AesSubFunction.mixcolumns(a)
     print(a_m)
