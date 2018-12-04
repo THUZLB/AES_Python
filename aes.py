@@ -271,14 +271,11 @@ class AesEncrypt:
     def encrypt128(plaintext, key):
         roundkeys = AesGenerate.generate_roundkeys128(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-        print(0, ciphertext)
         for i in range(1, 10):
             ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)])
-            print(i, ciphertext)
         ciphertext = AesSubFunction.subbytes(ciphertext)
         ciphertext = AesSubFunction.shiftrows(ciphertext)
         ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 10:16 * 11])
-        print(10, ciphertext)
 
         return ciphertext
 
@@ -361,93 +358,58 @@ class AesDecrypt:
 
     @staticmethod
     def decrypt128(ciphertext, key):
-        print(10, ciphertext)
         roundkeys = AesGenerate.generate_roundkeys128(key)
         plaintext = AesSubFunction.invaddroundkey(ciphertext, roundkeys[:, 16 * 10: 16 * 11])
         plaintext = AesSubFunction.invshiftrows(plaintext)
         plaintext = AesSubFunction.invsubbytes(plaintext)
-        print(9, plaintext)
         for i in range(9, 0, -1):
             plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
-            print(i - 1, plaintext)
         plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
-        print(-1, plaintext)
 
         return plaintext
 
     @staticmethod
-    def decrypt192(cihertext, key):
-        pass
+    def decrypt192(ciphertext, key):
+        roundkeys = AesGenerate.generate_roundkeys192(key)
+        plaintext = AesSubFunction.invaddroundkey(ciphertext, roundkeys[:, 16 * 12: 16 * 13])
+        plaintext = AesSubFunction.invshiftrows(plaintext)
+        plaintext = AesSubFunction.invsubbytes(plaintext)
+        for i in range(11, 0, -1):
+            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
+        plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
+
+        return plaintext
 
     @staticmethod
     def decrypt256(ciphertext, key):
-        pass
+        roundkeys = AesGenerate.generate_roundkeys256(key)
+        plaintext = AesSubFunction.invaddroundkey(ciphertext, roundkeys[:, 16 * 14: 16 * 15])
+        plaintext = AesSubFunction.invshiftrows(plaintext)
+        plaintext = AesSubFunction.invsubbytes(plaintext)
+        for i in range(13, 0, -1):
+            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
+        plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
+
+        return plaintext
 
 
 if __name__ == '__main__':
     p = np.arange(16, dtype=np.uint8).reshape(-1, 16)
-    k = np.arange(16, dtype=np.uint8).reshape(-1, 16)
-    c = AesEncrypt.encrypt(p, k)
-    print('c=:', c)
-    # [[  0  96 191 254  70 131  75 184 218  92 249 166  31 242  32 174]]
-    # [[106 255 243 202 118  64 203 129 156 212  11  94 221  26 164 254]]
+    print('p=: ', p)
+    k_128 = np.arange(16, dtype=np.uint8).reshape(-1, 16)
+    c_128 = AesEncrypt.encrypt(p, k_128)
+    print('c_128=: ', c_128)
+    p_inv128 = AesDecrypt.decrypt(c_128, k_128)
+    print('p_inv128=: ', p_inv128, '\n')
 
-    p_i = AesDecrypt.decrypt(c, k)
-    print('p_i=: ', p_i)
+    k_192 = np.arange(24, dtype=np.uint8).reshape(-1, 24)
+    c_192 = AesEncrypt.encrypt(p, k_192)
+    print('c_192= :', c_192)
+    p_inv192 = AesDecrypt.decrypt(c_192, k_192)
+    print('p_inv192=: ', p_inv192, '\n')
 
-    # p_sub = AesSubFunction.subbytes(p)
-    # print('p_sub=: \n    ', p_sub)
-    # p_sub_i = AesSubFunction.invsubbytes(p_sub)
-    # print('p_sub_i=: \n    ', p_sub_i)
-    #
-    # p_shift = AesSubFunction.shiftrows(p)
-    # print('p_shift=: \n    ', p_shift)
-    # p_shift_i = AesSubFunction.invshiftrows(p_shift)
-    # print('p_shift_i=: \n    ', p_shift_i)
-    #
-    # p_mix = AesSubFunction.mixcolumns(p)
-    # print('p_mix=: \n    ', p_mix)
-    # p_mix_i = AesSubFunction.invmixcolumns(p_mix)
-    # print('p_mix_i=: \n    ', p_mix_i)
-    #
-    # p_add = AesSubFunction.addroundkey(p, k)
-    # print('p_add=: \n    ', p_add)
-    # p_add_i = AesSubFunction.invaddroundkey(p_add, k)
-    # print('p_add_i=: \n    ', p_add_i)
-    # [[142 193 102  72  26 103 122 169 106  20 255 110 206 136 192  16]]
-    # [[ 16 110 234 136 148 247 131  51 181  40 122 136  88 240  36 178]]
-    roundkeys = AesGenerate.generate_roundkeys128(k)
-    # print(roundkeys.shape)
-    print('inverse analysis-------------------------------------------')
-    c_9 = np.array([[142, 193, 102, 72, 26, 103, 122, 169, 106, 20, 255, 110, 206, 136, 192, 16]], dtype=np.uint8)
-    print(c_9)
-    c_9_invadd = AesSubFunction.invaddroundkey(c_9, roundkeys[:, 16 * 9: 16 * 10])
-    print(c_9_invadd)
-    c_9_invmix = AesSubFunction.invmixcolumns(c_9_invadd)
-    print(c_9_invmix)
-    c_9_invshift = AesSubFunction.invshiftrows(c_9_invmix)
-    print(c_9_invshift)
-    c_9_invsub = AesSubFunction.invsubbytes(c_9_invshift)
-    print(c_9_invsub)
-    print('inverse analysis-------------------------------------------')
-    c_9_add = AesSubFunction.addroundkey(c_9_invadd, roundkeys[:, 16 * 9: 16 * 10])
-    print(c_9_add)
-    c_9_mix = AesSubFunction.mixcolumns(c_9_invmix)
-    print(c_9_mix)
-    c_9_shift = AesSubFunction.shiftrows(c_9_invshift)
-    print(c_9_shift)
-    c_9_sub = AesSubFunction.subbytes(c_9_invsub)
-    print(c_9_sub)
-
-    print(AesSubFunction.round_decrypt(c_9, roundkeys[:, 16 * 9: 16 * 10]))
-
-    print('mixtest---------------------------------------------------------')
-    a = np.array([[202, 104, 218, 55, 34, 52, 54, 196, 213, 140, 135, 195, 106, 159, 236, 196]], dtype=np.uint8)
-    print(a)
-    a_m = AesSubFunction.mixcolumns(a)
-    print(a_m)
-    a_i = AesSubFunction.invmixcolumns(a_m)
-    print(a_i)
-    # [[202 104 218  55  34  52  54 196 213 140 135 195 106 159 236 196]]
-    # [[218  88  84 153 234 212  45 247 122 135  18 242  70 164  97  94]]
-    # [[202 104 218  55  78 110  90 158 213 140 135 195  48 243 182 168]]
+    k_256 = np.arange(32, dtype=np.uint8).reshape(-1, 32)
+    c_256 = AesEncrypt.encrypt(p, k_256)
+    print('c_256= :', c_256)
+    p_inv256 = AesDecrypt.decrypt(c_256, k_256)
+    print('p_inv256=: ', p_inv256, '\n')
