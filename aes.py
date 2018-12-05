@@ -169,18 +169,20 @@ class AesSubFunction:
         return invmixcolumns_data
 
     @staticmethod
-    def round_encrypt(data, key):
+    def round_encrypt(data, key, lastround=False):
         data = AesSubFunction.subbytes(data)
         data = AesSubFunction.shiftrows(data)
-        data = AesSubFunction.mixcolumns(data)
+        if not lastround:
+            data = AesSubFunction.mixcolumns(data)
         data = AesSubFunction.addroundkey(data, key)
 
         return data
 
     @staticmethod
-    def round_decrypt(data, key):
+    def round_decrypt(data, key, lastround=False):
         data = AesSubFunction.invaddroundkey(data, key)
-        data = AesSubFunction.invmixcolumns(data)
+        if not lastround:
+            data = AesSubFunction.invmixcolumns(data)
         data = AesSubFunction.invshiftrows(data)
         data = AesSubFunction.invsubbytes(data)
 
@@ -271,11 +273,9 @@ class AesEncrypt:
     def encrypt128(plaintext, key):
         roundkeys = AesGenerate.generate_roundkeys128(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-        for i in range(1, 10):
-            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)])
-        ciphertext = AesSubFunction.subbytes(ciphertext)
-        ciphertext = AesSubFunction.shiftrows(ciphertext)
-        ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 10:16 * 11])
+        for i in range(1, 11):
+            lastround = True if i == 10 else False
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
 
         return ciphertext
 
@@ -310,11 +310,9 @@ class AesEncrypt:
     def encrypt192(plaintext, key):
         roundkeys = AesGenerate.generate_roundkeys192(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-        for j in range(1, 12):
-            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * j:16 * (j + 1)])
-        ciphertext = AesSubFunction.subbytes(ciphertext)
-        ciphertext = AesSubFunction.shiftrows(ciphertext)
-        ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 12:16 * 13])
+        for i in range(1, 13):
+            lastround = True if i == 12 else False
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
 
         return ciphertext
 
@@ -322,11 +320,9 @@ class AesEncrypt:
     def encrypt256(plaintext, key):
         roundkeys = AesGenerate.generate_roundkeys256(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-        for j in range(1, 14):
-            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * j:16 * (j + 1)])
-        ciphertext = AesSubFunction.subbytes(ciphertext)
-        ciphertext = AesSubFunction.shiftrows(ciphertext)
-        ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 14:16 * 15])
+        for i in range(1, 15):
+            lastround = True if i == 14 else False
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
 
         return ciphertext
 
@@ -359,11 +355,10 @@ class AesDecrypt:
     @staticmethod
     def decrypt128(ciphertext, key):
         roundkeys = AesGenerate.generate_roundkeys128(key)
-        plaintext = AesSubFunction.invaddroundkey(ciphertext, roundkeys[:, 16 * 10: 16 * 11])
-        plaintext = AesSubFunction.invshiftrows(plaintext)
-        plaintext = AesSubFunction.invsubbytes(plaintext)
-        for i in range(9, 0, -1):
-            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
+        plaintext = ciphertext
+        for i in range(10, 0, -1):
+            lastound = True if i == 10 else False
+            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)], lastound)
         plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
 
         return plaintext
@@ -371,11 +366,10 @@ class AesDecrypt:
     @staticmethod
     def decrypt192(ciphertext, key):
         roundkeys = AesGenerate.generate_roundkeys192(key)
-        plaintext = AesSubFunction.invaddroundkey(ciphertext, roundkeys[:, 16 * 12: 16 * 13])
-        plaintext = AesSubFunction.invshiftrows(plaintext)
-        plaintext = AesSubFunction.invsubbytes(plaintext)
-        for i in range(11, 0, -1):
-            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
+        plaintext = ciphertext
+        for i in range(12, 0, -1):
+            lastound = True if i == 12 else False
+            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)], lastound)
         plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
 
         return plaintext
@@ -383,11 +377,10 @@ class AesDecrypt:
     @staticmethod
     def decrypt256(ciphertext, key):
         roundkeys = AesGenerate.generate_roundkeys256(key)
-        plaintext = AesSubFunction.invaddroundkey(ciphertext, roundkeys[:, 16 * 14: 16 * 15])
-        plaintext = AesSubFunction.invshiftrows(plaintext)
-        plaintext = AesSubFunction.invsubbytes(plaintext)
-        for i in range(13, 0, -1):
-            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)])
+        plaintext = ciphertext
+        for i in range(14, 0, -1):
+            lastound = True if i == 14 else False
+            plaintext = AesSubFunction.round_decrypt(plaintext, roundkeys[:, 16 * i: 16 * (i + 1)], lastound)
         plaintext = AesSubFunction.invaddroundkey(plaintext, roundkeys[:, 0: 16])
 
         return plaintext
