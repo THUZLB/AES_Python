@@ -199,6 +199,40 @@ class AesGenerate:
         return key
 
     @staticmethod
+    def get_roundkeys(key, rounds=0):
+        if key.shape[-1] not in [16, 24, 32]:
+            raise ValueError('The last demension of key should be in [16, 24, 32] but we got %s.' % key.shape[-1])
+        if key.shape[1] == 16:
+            if rounds > 10:
+                raise ValueError('rounds in AES128 should not be greater than 10.')
+            else:
+                return AesGenerate.generate_roundkeys128(key)[:, 16 * rounds: 16 * (rounds + 1)]
+        elif key.shape[1] == 24:
+            if rounds > 12:
+                raise ValueError('rounds in AES192 should not be greater than 12.')
+            else:
+                return AesGenerate.generate_roundkeys192(key)[:, 16 * rounds: 16 * (rounds + 1)]
+        else:
+            if rounds > 14:
+                raise ValueError('rounds in AES256 should not be greater than 14.')
+            else:
+                return AesGenerate.generate_roundkeys256(key)[:, 16 * rounds: 16 * (rounds + 1)]
+
+    @staticmethod
+    def generate_roundkeys(key):
+        if key.shape[-1] not in [16, 24, 32]:
+            raise ValueError('The last demension of key should be in [16, 24, 32] but we got %s.' % key.shape[-1])
+        if key.ndim == 1:
+            key = np.expand_dims(key, axis=0)
+
+        if key.shape[1] == 16:
+            return AesGenerate.generate_roundkeys128(key)
+        elif key.shape[1] == 24:
+            return AesGenerate.generate_roundkeys192(key)
+        else:
+            return AesGenerate.generate_roundkeys256(key)
+
+    @staticmethod
     def generate_roundkeys128(key):
         roundkeys = np.zeros(shape=(len(key), 16 * 11), dtype=np.uint8)
         roundkeys[:, 0:16] = key
@@ -271,7 +305,7 @@ class AesEncrypt:
 
     @staticmethod
     def encrypt128(plaintext, key):
-        roundkeys = AesGenerate.generate_roundkeys128(key)
+        roundkeys = AesGenerate.generate_roundkeys(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
         for i in range(1, 11):
             lastround = True if i == 10 else False
@@ -279,36 +313,60 @@ class AesEncrypt:
 
         return ciphertext
 
-    # @staticmethod
-    # def parameter_encrypt128(plaintext, key, round_start=-1, round_stop=10):
-    #     if not round_start in range(-1, 11):
-    #         raise ValueError('round_start should be in range(-1, 10) but we got %s.' %round_start)
-    #     if not round_stop in range(-1, 11):
-    #         raise ValueError('round_stop should be in range(-1, 10) but we got %s.' %round_stop)
-    #     if round_start > round_stop:
-    #         raise ValueError('round_start should not be larger than round_stop.')
-    #
-    #     if round_start == round_stop:
-    #         return plaintext
-    #     else:
-    #         roundkeys = AesGenerate.generate_roundkeys128(key)
-    #         if round_start == -1:
-    #             ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-    #         else:
-    #         for i in range(round_start, round_stop):
-    #
-    #     ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-    #     for j in range(1, 10):
-    #         ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * j:16 * (j + 1)])
-    #     ciphertext = AesSubFunction.subbytes(ciphertext)
-    #     ciphertext = AesSubFunction.shiftrows(ciphertext)
-    #     ciphertext = AesSubFunction.addroundkey(ciphertext, roundkeys[:, 16 * 10:16 * 11])
-    #
-    #     return ciphertext
+    @staticmethod
+    def parameter_encrypt(plaintext, key, round_start=-1, round_stop=10):
+        if key.shape[-1] == 16:
+            return AesEncrypt.parameter_encrypt128(plaintext, key, round_start, round_stop)
+        elif key.shape[-1] == 24:
+            return AesEncrypt.parameter_encrypt192(plaintext, key, round_start, round_stop)
+        elif key.shape[-1] == 32:
+            return AesEncrypt.parameter_encrypt256(plaintext, key, round_start, round_stop)
+        else:
+            raise ValueError('The last demension of key should be in [16, 24, 32] but we got %s.' % key.shape[-1])
+
+    @staticmethod
+    def parameter_encrypt128(plaintext, key, round_start=-1, round_stop=10):
+        if plaintext.shape[-1] != 16:
+            raise ValueError('The last demension of plaintext should be 16 but we got %s.' % plaintext.shape[-1])
+        if key.shape[-1] != 16:
+            raise ValueError('The last demension of key should be 16 but we got %s.' % key.shape[-1])
+
+        if plaintext.ndim == 1:
+            plaintext = np.expand_dims(plaintext, axis=0)
+        if key.ndim == 1:
+            key = np.tile(key, (len(plaintext), 1))
+
+        if len(key) != len(plaintext):
+            raise ValueError('The shape of key(%s) is not compatible with the shape of plaintext(%s).' % (
+                key.shpae, plaintext.shape))
+
+        if round_start not in range(-1, 11):
+            raise ValueError('round_start should be in range(-1, 11) but we got %s.' % round_start)
+        if round_stop not in range(-1, 11):
+            raise ValueError('round_stop should be in range(-1, 11) but we got %s.' % round_stop)
+        if round_start > round_stop:
+            raise ValueError('round_start should not be larger than round_stop.')
+
+        if round_start == round_stop:
+            return plaintext
+        else:
+            roundkeys = AesGenerate.generate_roundkeys(key)
+            if round_start == -1:
+                ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+                for i in range(1, round_stop + 1):
+                    lastround = True if i == 10 else False
+                    ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+                return ciphertext
+            else:
+                ciphertext = plaintext
+                for i in range(round_start + 1, round_stop + 1):
+                    lastround = True if i == 10 else False
+                    ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+                return ciphertext
 
     @staticmethod
     def encrypt192(plaintext, key):
-        roundkeys = AesGenerate.generate_roundkeys192(key)
+        roundkeys = AesGenerate.generate_roundkeys(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
         for i in range(1, 13):
             lastround = True if i == 12 else False
@@ -317,14 +375,94 @@ class AesEncrypt:
         return ciphertext
 
     @staticmethod
+    def parameter_encrypt192(plaintext, key, round_start=-1, round_stop=12):
+        if plaintext.shape[-1] != 16:
+            raise ValueError('The last demension of plaintext should be 16 but we got %s.' % plaintext.shape[-1])
+        if key.shape[-1] != 24:
+            raise ValueError('The last demension of key should be 24 but we got %s.' % key.shape[-1])
+
+        if plaintext.ndim == 1:
+            plaintext = np.expand_dims(plaintext, axis=0)
+        if key.ndim == 1:
+            key = np.tile(key, (len(plaintext), 1))
+
+        if len(key) != len(plaintext):
+            raise ValueError('The shape of key(%s) is not compatible with the shape of plaintext(%s).' % (
+                key.shpae, plaintext.shape))
+
+        if round_start not in range(-1, 13):
+            raise ValueError('round_start should be in range(-1, 13) but we got %s.' % round_start)
+        if round_stop not in range(-1, 13):
+            raise ValueError('round_stop should be in range(-1, 13) but we got %s.' % round_stop)
+        if round_start > round_stop:
+            raise ValueError('round_start should not be larger than round_stop.')
+
+        if round_start == round_stop:
+            return plaintext
+        else:
+            roundkeys = AesGenerate.generate_roundkeys(key)
+            if round_start == -1:
+                ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+                for i in range(1, round_stop + 1):
+                    lastround = True if i == 12 else False
+                    ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+                return ciphertext
+            else:
+                ciphertext = plaintext
+                for i in range(round_start + 1, round_stop + 1):
+                    lastround = True if i == 12 else False
+                    ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+                return ciphertext
+
+    @staticmethod
     def encrypt256(plaintext, key):
-        roundkeys = AesGenerate.generate_roundkeys256(key)
+        roundkeys = AesGenerate.generate_roundkeys(key)
         ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
         for i in range(1, 15):
             lastround = True if i == 14 else False
             ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
 
         return ciphertext
+
+    @staticmethod
+    def parameter_encrypt256(plaintext, key, round_start=-1, round_stop=14):
+        if plaintext.shape[-1] != 16:
+            raise ValueError('The last demension of plaintext should be 16 but we got %s.' % plaintext.shape[-1])
+        if key.shape[-1] != 32:
+            raise ValueError('The last demension of key should be 32 but we got %s.' % key.shape[-1])
+
+        if plaintext.ndim == 1:
+            plaintext = np.expand_dims(plaintext, axis=0)
+        if key.ndim == 1:
+            key = np.tile(key, (len(plaintext), 1))
+
+        if len(key) != len(plaintext):
+            raise ValueError('The shape of key(%s) is not compatible with the shape of plaintext(%s).' % (
+                key.shpae, plaintext.shape))
+
+        if round_start not in range(-1, 15):
+            raise ValueError('round_start should be in range(-1, 13) but we got %s.' % round_start)
+        if round_stop not in range(-1, 15):
+            raise ValueError('round_stop should be in range(-1, 13) but we got %s.' % round_stop)
+        if round_start > round_stop:
+            raise ValueError('round_start should not be larger than round_stop.')
+
+        if round_start == round_stop:
+            return plaintext
+        else:
+            roundkeys = AesGenerate.generate_roundkeys(key)
+            if round_start == -1:
+                ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+                for i in range(1, round_stop + 1):
+                    lastround = True if i == 14 else False
+                    ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+                return ciphertext
+            else:
+                ciphertext = plaintext
+                for i in range(round_start + 1, round_stop + 1):
+                    lastround = True if i == 14 else False
+                    ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+                return ciphertext
 
 
 class AesDecrypt:
@@ -388,7 +526,8 @@ class AesDecrypt:
 
 if __name__ == '__main__':
     p = np.arange(16, dtype=np.uint8).reshape(-1, 16)
-    print('p=: ', p)
+    print('p=: ', p, '\n')
+
     k_128 = np.arange(16, dtype=np.uint8).reshape(-1, 16)
     c_128 = AesEncrypt.encrypt(p, k_128)
     print('c_128=: ', c_128)
@@ -406,3 +545,21 @@ if __name__ == '__main__':
     print('c_256= :', c_256)
     p_inv256 = AesDecrypt.decrypt(c_256, k_256)
     print('p_inv256=: ', p_inv256, '\n')
+
+    k_128_rounds10 = AesGenerate.get_roundkeys(k_128, 10)
+    print('k_128_rounds10=: ', k_128_rounds10, '\n')
+
+    k_192_rounds12 = AesGenerate.get_roundkeys(k_192, 12)
+    print('k_192_rounds12=: ', k_192_rounds12, '\n')
+
+    k_256_rounds14 = AesGenerate.get_roundkeys(k_256, 14)
+    print('k_256_rounds14=: ', k_256_rounds14, '\n')
+
+    c_128_rounds10 = AesEncrypt.parameter_encrypt(p, k_128, -1, 10)
+    print('c_128_rounds10=: ', c_128_rounds10, '\n')
+
+    c_192_rounds12 = AesEncrypt.parameter_encrypt(p, k_192, -1, 12)
+    print('c_192_rounds12=: ', c_192_rounds12, '\n')
+
+    c_256_rounds14 = AesEncrypt.parameter_encrypt(p, k_256, -1, 14)
+    print('c_256_rounds14=: ', c_256_rounds14, '\n')
