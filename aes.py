@@ -304,16 +304,6 @@ class AesEncrypt:
             return AesEncrypt.encrypt256(plaintext, key)
 
     @staticmethod
-    def encrypt128(plaintext, key):
-        roundkeys = AesGenerate.generate_roundkeys(key)
-        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
-        for i in range(1, 11):
-            lastround = True if i == 10 else False
-            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
-
-        return ciphertext
-
-    @staticmethod
     def parameter_encrypt(plaintext, key, round_start=-1, round_stop=10):
         if key.shape[-1] == 16:
             return AesEncrypt.parameter_encrypt128(plaintext, key, round_start, round_stop)
@@ -323,6 +313,112 @@ class AesEncrypt:
             return AesEncrypt.parameter_encrypt256(plaintext, key, round_start, round_stop)
         else:
             raise ValueError('The last demension of key should be in [16, 24, 32] but we got %s.' % key.shape[-1])
+
+    @staticmethod
+    def stop_after_addkey(plaintext, key, round_stop=10):
+        return AesEncrypt.parameter_encrypt(plaintext, key, round_start=-1, round_stop=round_stop)
+
+    @staticmethod
+    def stop_after_subbytes(plaintext, key, round_stop=10):
+        if key.shape[-1] == 16:
+            return AesEncrypt.stop_after_subbytes128(plaintext, key, round_stop)
+        elif key.shape[-1] == 24:
+            return AesEncrypt.stop_after_subbytes192(plaintext, key, round_stop)
+        elif key.shape[-1] == 32:
+            return AesEncrypt.stop_after_subbytes256(plaintext, key, round_stop)
+        else:
+            raise ValueError('The last demension of key should be in [16, 24, 32] but we got %s.' % key.shape[-1])
+
+    @staticmethod
+    def stop_after_subbytes128(plaintext, key, round_stop=10):
+        if plaintext.shape[-1] != 16:
+            raise ValueError('The last demension of plaintext should be 16 but we got %s.' % plaintext.shape[-1])
+        if key.shape[-1] != 16:
+            raise ValueError('The last demension of key should be 16 but we got %s.' % key.shape[-1])
+
+        if plaintext.ndim == 1:
+            plaintext = np.expand_dims(plaintext, axis=0)
+        if key.ndim == 1:
+            key = np.tile(key, (len(plaintext), 1))
+
+        if len(key) != len(plaintext):
+            raise ValueError('The shape of key(%s) is not compatible with the shape of plaintext(%s).' % (
+                key.shpae, plaintext.shape))
+
+        if round_stop not in range(0, 11):
+            raise ValueError('round_stop should be in range(0, 11) but we got %s.' % round_stop)
+
+        roundkeys = AesGenerate.generate_roundkeys(key)
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for i in range(1, round_stop):
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], False)
+        ciphertext = AesSubFunction.subbytes(ciphertext)
+
+        return ciphertext
+
+    @staticmethod
+    def stop_after_subbytes192(plaintext, key, round_stop=12):
+        if plaintext.shape[-1] != 16:
+            raise ValueError('The last demension of plaintext should be 16 but we got %s.' % plaintext.shape[-1])
+        if key.shape[-1] != 24:
+            raise ValueError('The last demension of key should be 24 but we got %s.' % key.shape[-1])
+
+        if plaintext.ndim == 1:
+            plaintext = np.expand_dims(plaintext, axis=0)
+        if key.ndim == 1:
+            key = np.tile(key, (len(plaintext), 1))
+
+        if len(key) != len(plaintext):
+            raise ValueError('The shape of key(%s) is not compatible with the shape of plaintext(%s).' % (
+                key.shpae, plaintext.shape))
+
+        if round_stop not in range(0, 13):
+            raise ValueError('round_stop should be in range(0, 13) but we got %s.' % round_stop)
+
+        roundkeys = AesGenerate.generate_roundkeys(key)
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for i in range(1, round_stop):
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], False)
+        ciphertext = AesSubFunction.subbytes(ciphertext)
+
+        return ciphertext
+
+    @staticmethod
+    def stop_after_subbytes256(plaintext, key, round_stop=14):
+        if plaintext.shape[-1] != 16:
+            raise ValueError('The last demension of plaintext should be 16 but we got %s.' % plaintext.shape[-1])
+        if key.shape[-1] != 32:
+            raise ValueError('The last demension of key should be 32 but we got %s.' % key.shape[-1])
+
+        if plaintext.ndim == 1:
+            plaintext = np.expand_dims(plaintext, axis=0)
+        if key.ndim == 1:
+            key = np.tile(key, (len(plaintext), 1))
+
+        if len(key) != len(plaintext):
+            raise ValueError('The shape of key(%s) is not compatible with the shape of plaintext(%s).' % (
+                key.shpae, plaintext.shape))
+
+        if round_stop not in range(0, 15):
+            raise ValueError('round_stop should be in range(0, 15) but we got %s.' % round_stop)
+
+        roundkeys = AesGenerate.generate_roundkeys(key)
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for i in range(1, round_stop):
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], False)
+        ciphertext = AesSubFunction.subbytes(ciphertext)
+
+        return ciphertext
+
+    @staticmethod
+    def encrypt128(plaintext, key):
+        roundkeys = AesGenerate.generate_roundkeys(key)
+        ciphertext = AesSubFunction.addroundkey(plaintext, roundkeys[:, 0:16])
+        for i in range(1, 11):
+            lastround = True if i == 10 else False
+            ciphertext = AesSubFunction.round_encrypt(ciphertext, roundkeys[:, 16 * i:16 * (i + 1)], lastround)
+
+        return ciphertext
 
     @staticmethod
     def parameter_encrypt128(plaintext, key, round_start=-1, round_stop=10):
@@ -525,6 +621,7 @@ class AesDecrypt:
 
 
 if __name__ == '__main__':
+    print('----------------------------------------Test----------------------------------')
     p = np.arange(16, dtype=np.uint8).reshape(-1, 16)
     print('p=: ', p, '\n')
 
@@ -563,3 +660,12 @@ if __name__ == '__main__':
 
     c_256_rounds14 = AesEncrypt.parameter_encrypt(p, k_256, -1, 14)
     print('c_256_rounds14=: ', c_256_rounds14, '\n')
+
+    c_128_after_subbytes10 = AesEncrypt.stop_after_subbytes(p, k_128, 10)
+    print('c_128_after_subbytes10=: ', c_128_after_subbytes10, '\n')
+
+    c_192_after_subbytes12 = AesEncrypt.stop_after_subbytes(p, k_192, 12)
+    print('c_192_after_subbytes12=: ', c_192_after_subbytes12, '\n')
+
+    c_256_after_subbytes14 = AesEncrypt.stop_after_subbytes(p, k_256, 14)
+    print('c_256_after_subbytes14=: ', c_256_after_subbytes14, '\n')
